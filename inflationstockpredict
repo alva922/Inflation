@@ -1,0 +1,106 @@
+#import/install libraries
+import os
+import re
+import datetime as dt
+from concurrent import futures
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas_datareader.data as web
+from sklearn.linear_model import LinearRegression
+data_dir = "YourPath" #insert your path
+os.makedirs(data_dir, exist_ok=True)
+!pip install yfinance
+import pandas
+from pandas_datareader import data as pdr
+import yfinance as yf
+# Import the plotting library
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+# Get the data for the stock AAPL
+data = yf.download('AAPL','2010-01-01','2022-05-16')
+sp_500=data
+fig, ax = plt.subplots(figsize=(15, 8))
+ax.plot(sp_500.index, sp_500["Close"])
+ax.grid(axis="y")
+ax.set_title("AAPL historical price")
+ax.set_xlabel("Date")
+ax.set_ylabel("Price")
+plt.show()
+import pandas_datareader as web
+import pandas as pd
+from matplotlib import pyplot as plt
+import seaborn as sns
+start = dt.datetime(2010,1,1)
+end = dt.datetime(2022,5,16)
+cpi_annual = web.DataReader('FPCPITOTLZGUSA', 'fred', start, end)
+fig, ax = plt.subplots(figsize=(15, 8))
+plt.plot(cpi_annual)
+plt.grid(axis="y")
+plt.xlabel("Date")
+plt.ylabel("CPI change(%)")
+plt.show()
+cpi_monthly = web.DataReader('CPIAUCSL', 'fred', start, end)
+fig, ax = plt.subplots(figsize=(15, 8))
+plt.plot(cpi_monthly)
+plt.grid(axis="y")
+plt.xlabel("Date")
+plt.ylabel("CPI")
+plt.show()
+fig, ax = plt.subplots(figsize=(15, 8))
+cpi_monthly_change = cpi_monthly / cpi_monthly.shift(12) * 100 - 100
+plt.plot(cpi_monthly_change)
+plt.grid(axis="y")
+plt.xlabel("Date")
+plt.ylabel("CPI change(%)")
+plt.show()
+annual_data_list = []
+year_list = sp_500.index.year.unique()
+for year in year_list:
+    last_day_data = sp_500[sp_500.index.year == year].tail(1)
+    annual_data_list.append(last_day_data)
+sp500_annual = pd.concat(annual_data_list)
+sp500_annual_performance = sp500_annual[["Close"]] / sp500_annual[["Close"]].shift(1) * 100 - 100
+sp500_annual_performance.index = pd.to_datetime(sp500_annual_performance.index.strftime("%Y"))  # reset index to YYYY-01-01
+sp500_annual_performance.tail()
+merge_df = pd.merge(cpi_annual, sp500_annual_performance, left_index=True, right_index=True)
+merge_df.rename(columns={"FPCPITOTLZGUSA": "CPI", "Close": "SP500"}, inplace=True)
+fig, ax = plt.subplots(figsize=(15, 8))
+model = LinearRegression()
+model_reg = model.fit(merge_df[["CPI"]], merge_df["SP500"])
+reg_curve_x = np.linspace(min(merge_df["CPI"]), max(merge_df["CPI"]))
+reg_curve_y = model_reg.predict(reg_curve_x.reshape(-1, 1))
+plt.scatter(merge_df["CPI"], merge_df["SP500"])
+plt.plot(reg_curve_x, reg_curve_y, color="red")
+plt.xlabel("CPI change(%)")
+plt.ylabel("AAPL performance(%)")
+plt.show()
+monthly_data_list = []
+month_list = sp_500.index.month.unique()
+for year in year_list:
+    for month in month_list:
+        last_day_data = sp_500[(sp_500.index.year == year) & (sp_500.index.month == month)].tail(1)
+        monthly_data_list.append(last_day_data)
+sp500_monthly = pd.concat(monthly_data_list)
+sp500_monthly_performance = sp500_monthly[["Close"]] / sp500_monthly[["Close"]].shift(1) * 100 - 100
+sp500_monthly_performance.index = pd.to_datetime(
+    sp500_monthly_performance.index.strftime("%Y-%m"))  # reset index to YYYY-01-01
+sp500_monthly_performance.tail()
+fig, ax = plt.subplots(figsize=(15, 8))
+merge_df_monthly = pd.merge(
+    cpi_monthly_change,
+    sp500_monthly_performance,
+    left_index=True,
+    right_index=True)
+merge_df_monthly.rename(columns={"CPIAUCSL": "CPI", "Close": "SP500"}, inplace=True)
+merge_df_monthly.dropna(inplace=True)
+model_monthly = LinearRegression()
+model_monthly_reg = model_monthly.fit(merge_df_monthly[["CPI"]], merge_df_monthly["SP500"])
+reg_curve_monthly_x = np.linspace(min(merge_df_monthly["CPI"]), max(merge_df_monthly["CPI"]))
+reg_curve_monthly_y = model_monthly_reg.predict(reg_curve_monthly_x.reshape(-1, 1))
+plt.scatter(merge_df_monthly["CPI"], merge_df_monthly["SP500"])
+plt.plot(reg_curve_monthly_x, reg_curve_monthly_y, color="red")
+plt.xlabel("CPI change(%)")
+plt.ylabel("AAPL performance(%)")
+plt.show()
